@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LOTTO NEURO-DNA HYBRID v600 / v610 PRO</title>
+    <!-- 외부 라이브러리: 엑셀 파싱 및 수치 계산 보조 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #020617;
+            --panel-dark: #0f172a;
+            --header-dark: #1e1b4b;
+            --accent-blue: #38bdf8;
+            --accent-green: #10b981;
+            --accent-red: #f43f5e;
+            --text-slate: #94a3b8;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            background-color: var(--bg-dark);
+            color: white;
+            font-family: 'Malgun Gothic', sans-serif;
+            height: 100%; overflow: hidden;
+        }
+
+        /* 비밀번호 화면 */
+        #login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-dark); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 9999;
+        }
+        .login-box {
+            background: var(--panel-dark); padding: 40px; border-radius: 15px;
+            border: 1px solid var(--header-dark); text-align: center;
+        }
+        input[type="password"] {
+            padding: 12px; border-radius: 5px; border: none; width: 200px;
+            font-size: 18px; text-align: center; margin-bottom: 20px;
+        }
+        .btn-login {
+            background: var(--accent-blue); color: var(--bg-dark);
+            border: none; padding: 10px 30px; border-radius: 5px;
+            font-weight: bold; cursor: pointer;
+        }
+
+        /* 메인 UI */
+        #main-app { display: none; height: 100vh; flex-direction: column; }
+        
+        .tab-container { display: flex; background: var(--header-dark); padding: 0 10px; }
+        .tab-btn {
+            padding: 15px 25px; cursor: pointer; border: none; background: none;
+            color: var(--text-slate); font-weight: bold; font-size: 16px;
+        }
+        .tab-btn.active {
+            background: var(--accent-blue); color: var(--bg-dark);
+        }
+
+        .content-area { flex: 1; overflow-y: auto; padding: 20px; display: none; }
+        .content-area.active { display: block; }
+
+        header {
+            background: var(--header-dark); padding: 20px; text-align: center;
+            border-bottom: 2px solid var(--panel-dark); margin-bottom: 20px;
+        }
+        h1 { color: var(--accent-blue); font-size: 28px; margin: 0; font-family: 'Arial Black'; }
+
+        .control-row {
+            display: flex; gap: 10px; align-items: center; margin-bottom: 15px;
+            background: var(--panel-dark); padding: 15px; border-radius: 8px;
+            border: 1px solid #334155;
+        }
+
+        .status-bar {
+            color: var(--accent-red); font-weight: bold; margin-bottom: 15px; font-size: 18px;
+        }
+
+        .display-split { display: flex; gap: 20px; margin-bottom: 20px; }
+        .sets-box {
+            flex: 1; background: var(--bg-dark); padding: 15px;
+            font-family: 'Consolas'; font-size: 22px; color: var(--text-slate);
+            border-radius: 8px; line-height: 1.6;
+        }
+        .rank-panel {
+            width: 320px; background: var(--panel-dark); border: 3px solid var(--accent-blue);
+            border-radius: 10px; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center; padding: 20px;
+        }
+
+        .log-area {
+            height: 180px; background: var(--panel-dark); color: var(--text-slate);
+            font-family: 'Consolas'; font-size: 13px; padding: 10px;
+            overflow-y: scroll; border: 1px solid #334155; border-radius: 5px; margin-top: 10px;
+        }
+        .debug-console {
+            height: 120px; background: #000; color: #34d399; font-family: 'Consolas';
+            padding: 10px; overflow-y: scroll; margin-top: 15px; border-radius: 5px;
+        }
+
+        button {
+            padding: 8px 15px; border-radius: 4px; border: none; cursor: pointer;
+            font-weight: bold; color: white; transition: 0.2s;
+        }
+        .btn-load { background: #334155; }
+        .btn-evolve { background: #059669; }
+        .btn-extract { background: #4338ca; }
+        .btn-auto { background: #7c3aed; }
+        .btn-stop { background: #dc2626; }
+
+        .match-highlight { color: var(--accent-red); font-weight: bold; }
+        .hit-red { color: var(--accent-red); font-weight: bold; }
+        
+        select { background: #1e293b; color: white; border: 1px solid #475569; padding: 5px; }
+
+        input[type="file"] { display: none; }
+    </style>
+</head>
+<body>
+
+<!-- 비밀번호 로그인 -->
+<div id="login-overlay">
+    <div class="login-box">
+        <h2 style="color: var(--accent-blue); margin-bottom: 20px;">SYSTEM ACCESS</h2>
+        <input type="password" id="pass-input" placeholder="PASSWORD">
+        <br>
+        <button class="btn-login" onclick="checkPassword()">UNSEAL ACCESS</button>
+    </div>
+</div>
+
+<div id="main-app">
+    <div class="tab-container">
+        <button class="tab-btn active" onclick="switchTab(0)"> v600.66 Turbo </button>
+        <button class="tab-btn" onclick="switchTab(1)"> v610.00 DNA PRO </button>
+    </div>
+
+    <!-- v600.66 Tab -->
+    <div id="tab-v600" class="content-area active">
+        <header><h1>NEURO-EVOLUTION v600.66</h1></header>
+        <div class="control-row">
+            <button class="btn-load" onclick="triggerFileInput()">📁 데이터 로드</button>
+            <span id="v600-count-lbl" style="color:var(--text-slate)">상태: 데이터 없음</span>
+            <div style="flex:1"></div>
+            <button class="btn-load" onclick="triggerLogicInput('v600')">📥 로직 가져오기</button>
+        </div>
+
+        <div class="control-row">
+            <label>목표점수:</label>
+            <select id="v600-target-score">
+                <script>
+                    for(let i=30; i<=55; i++) {
+                        let val = (i/10).toFixed(1);
+                        document.write(`<option value="${val}" ${val=="4.0"?"selected":""}>${val}</option>`);
+                    }
+                </script>
+            </select>
+            <button id="v600-evolve-btn" class="btn-evolve" onclick="v600ToggleEvolution()">⚡ 진화 시작</button>
+            <button class="btn-extract" onclick="v600RunFixed()">🎯 결과 추출</button>
+            <button id="v600-auto-btn" class="btn-auto" onclick="v600ToggleAuto()">🔄 자동 추출</button>
+        </div>
+
+        <div id="v600-status" class="status-bar">현재 로직: [미선택 - 로직 파일을 로드하거나 진화를 시작하세요]</div>
+
+        <div class="display-split">
+            <div id="v600-sets-display" class="sets-box"></div>
+            <div id="v600-rank-panel" class="rank-panel" style="display:none;">
+                <div id="v600-rank-text" style="font-size: 20px; font-weight:bold; color:var(--accent-blue)">분석 대기 중</div>
+                <div id="v600-timer-text" style="color:var(--accent-green); margin-top:10px; font-weight:bold;"></div>
+            </div>
+        </div>
+
+        <div style="color: var(--accent-blue); font-weight: bold; margin-bottom: 5px;">■ 회차별 적중 분석 (최근 5회차)</div>
+        <div id="v600-bt-log" class="log-area"></div>
+        <div id="v600-debug-log" class="debug-console"></div>
+    </div>
+
+    <!-- v610.00 Tab -->
+    <div id="tab-v610" class="content-area">
+        <header><h1>DNA-EVOLUTION v610.00 PRO</h1></header>
+        <div class="control-row">
+            <button class="btn-load" onclick="triggerFileInput()">📁 데이터 로드</button>
+            <span id="v610-count-lbl" style="color:var(--text-slate)">상태: 데이터 없음</span>
+            <div style="flex:1"></div>
+            <button class="btn-load" onclick="triggerLogicInput('v610')">📥 로직 로드</button>
+        </div>
+
+        <div class="control-row">
+            <button id="v610-opt-btn" class="btn-stop" style="background:#e11d48; font-size:16px; width:250px;" onclick="v610ToggleSearch()">💎 최적 조합 탐색 시작</button>
+            <div style="flex:1"></div>
+            <span style="color:var(--accent-red); font-weight:bold; font-size:18px;">Target Score: 3.10 Over</span>
+        </div>
+
+        <div id="v610-status" class="status-bar">장착 로직: [미선택]</div>
+
+        <div class="display-split">
+            <div id="v610-sets-display" class="sets-box"></div>
+            <div id="v610-rank-panel" class="rank-panel">
+                <div id="v610-rank-text" style="font-size: 20px; font-weight:bold; color:var(--accent-blue)">분석 대기 중</div>
+            </div>
+        </div>
+
+        <div style="color: var(--accent-blue); font-weight: bold; margin-bottom: 5px;">■ DNA 시뮬레이션 결과 (최근 5회차)</div>
+        <div id="v610-bt-log" class="log-area"></div>
+        <div id="v610-debug-log" class="debug-console"></div>
+    </div>
+</div>
+
+<!-- 숨겨진 파일 인풋 -->
+<input type="file" id="file-excel" accept=".xlsx, .xls" onchange="loadExcel(this)">
+<input type="file" id="file-logic" accept=".json" onchange="loadLogicFile(this)">
+
+<script>
+    // --- 글로벌 변수 ---
+    let sharedData = []; // [[회차, n1, n2, n3, n4, n5, n6, b], ...]
+    let v600BestParams = null;
+    let v600BestScore = 0.0;
+    let v600IsEvolving = false;
+    let v600IsAuto = false;
+    let v600IsWaiting = false;
+
+    let v610BestParams = null;
+    let v610IsSearching = false;
+    let logicTargetTab = 'v600';
+
+    // --- 비밀번호 체크 ---
+    function checkPassword() {
+        const pass = document.getElementById('pass-input').value;
+        if(pass === "4938") {
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('main-app').style.display = 'flex';
+        } else {
+            alert("WRONG PASSWORD");
+        }
+    }
+
+    // 엔터키 지원
+    document.addEventListener('keydown', (e) => {
+        if(e.key === "Enter") {
+            if(document.getElementById('login-overlay').style.display !== 'none') {
+                checkPassword();
+            } else {
+                // 현재 탭에 맞춰 실행
+                const activeTab = document.querySelector('.content-area.active').id;
+                if(activeTab === 'tab-v600') v600RunFixed();
+                else if(activeTab === 'tab-v610') v610ToggleSearch();
+            }
+        }
+    });
+
+    // --- 탭 전환 ---
+    function switchTab(idx) {
+        const btns = document.querySelectorAll('.tab-btn');
+        const contents = document.querySelectorAll('.content-area');
+        btns.forEach((b, i) => b.classList.toggle('active', i === idx));
+        contents.forEach((c, i) => c.classList.toggle('active', i === idx));
+    }
+
+    // --- 데이터 로딩 (SheetJS) ---
+    function triggerFileInput() { document.getElementById('file-excel').click(); }
+    function loadExcel(input) {
+        const file = input.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+            
+            // 데이터 클리닝 (Python의 유효행 필터 로직)
+            sharedData = json.filter(row => row[0] && !isNaN(row[0]) && row[1] && !isNaN(row[1]));
+            
+            const msg = `로드 완료: ${sharedData.length}회차 데이터`;
+            document.getElementById('v600-count-lbl').innerText = msg;
+            document.getElementById('v600-count-lbl').style.color = "#10b981";
+            document.getElementById('v610-count-lbl').innerText = msg;
+            document.getElementById('v610-count-lbl').style.color = "#10b981";
+            
+            writeLog('v600', `>> 데이터 로드 성공: ${sharedData.length} rows\n`);
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // --- 로직 파일 로딩 ---
+    function triggerLogicInput(target) {
+        logicTargetTab = target;
+        document.getElementById('file-logic').click();
+    }
+    function loadLogicFile(input) {
+        const file = input.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const json = JSON.parse(e.target.result);
+                if(logicTargetTab === 'v600') {
+                    v600BestParams = json;
+                    v600BestScore = json.score || 0.0;
+                    document.getElementById('v600-status').innerText = `현재 로직: [${v600BestScore.toFixed(2)}점] 적용 완료 ✅`;
+                    document.getElementById('v600-status').style.color = "#10b981";
+                } else {
+                    v610BestParams = json;
+                    const score = json.score || 0.0;
+                    document.getElementById('v610-status').innerText = `장착 로직: [${score.toFixed(2)}점] DNA 엔진 로드 완료 ✅`;
+                    document.getElementById('v610-status').style.color = "#10b981";
+                }
+                writeLog(logicTargetTab, `>> 로직 로드 성공: ${file.name}\n`);
+            } catch(err) { alert("Invalid Logic File"); }
+        };
+        reader.readAsText(file);
+    }
+
+    // --- [Core Logic] v600.66 Pattern Filters ---
+    function advancedPatternFilterV600(nums) {
+        nums.sort((a,b) => a-b);
+        const sum = nums.reduce((a,b) => a+b, 0);
+        if(sum < 85 || sum > 205) return false;
+        const odd = nums.filter(n => n % 2 !== 0).length;
+        if(odd === 0 || odd === 6) return false;
+        
+        let diffs = new Set();
+        for(let i=0; i<6; i++) {
+            for(let j=i+1; j<6; j++) diffs.add(nums[j] - nums[i]);
+        }
+        const ac = diffs.size - 5;
+        if(ac < 7) return false;
+
+        for(let i=0; i<4; i++) {
+            if(nums[i]+1 === nums[i+1] && nums[i+1]+1 === nums[i+2]) return false;
+        }
+        return true;
+    }
+
+    function dnaPatternFilterV610(nums) {
+        nums.sort((a,b) => a-b);
+        const sum = nums.reduce((a,b) => a+b, 0);
+        if(sum < 110 || sum > 185) return false;
+        const odd = nums.filter(n => n % 2 !== 0).length;
+        if(![2,3,4].includes(odd)) return false;
+
+        let diffs = new Set();
+        for(let i=0; i<6; i++) {
+            for(let j=i+1; j<6; j++) diffs.add(nums[j] - nums[i]);
+        }
+        const ac = diffs.size - 5;
+        if(ac < 8) return false;
+
+        const zones = nums.map(n => Math.floor(n/10));
+        const counts = {};
+        zones.forEach(z => counts[z] = (counts[z]||0)+1);
+        if(Object.values(counts).some(c => c >= 4)) return false;
+        return true;
+    }
+
+    // --- [Engines] ---
+    class NeuroEngineV600 {
+        constructor(data, params) {
+            this.data = data;
+            this.params = params;
+            this.weights = this.calcWeights();
+            this.coreSize = parseInt(params.core_size || 14);
+            
+            let indexed = this.weights.map((w, i) => [w, i]).slice(1);
+            indexed.sort((a, b) => b[0] - a[0]);
+            this.superCore = indexed.slice(0, this.coreSize).map(x => x[1]);
+        }
+        calcWeights() {
+            let w = new Array(46).fill(1.0);
+            try {
+                // 최근 12회차 빈도
+                const recent = this.data.slice(-12);
+                recent.forEach(row => {
+                    for(let i=1; i<=6; i++) {
+                        let n = parseInt(row[i]);
+                        if(n>=1 && n<=45) w[n] += (this.params.w_recent || 10);
+                    }
+                });
+                // 간격(Gap) 가중치
+                let lastIndices = {};
+                for(let i=0; i<this.data.length; i++) {
+                    const idxFromEnd = this.data.length - 1 - i;
+                    for(let j=1; j<=6; j++) {
+                        let n = parseInt(this.data[idxFromEnd][j]);
+                        if(n>=1 && n<=45 && lastIndices[n] === undefined) lastIndices[n] = i;
+                    }
+                }
+                for(let n=1; n<=45; n++) {
+                    let gap = lastIndices[n] !== undefined ? lastIndices[n] : 100;
+                    if(gap >= 6 && gap <= 15) w[n] += (this.params.w_gap || 10);
+                    if(gap > 22) w[n] += (this.params.w_gap || 10) * 0.4;
+                }
+                // 이웃수
+                const last = this.data[this.data.length-1];
+                for(let i=1; i<=6; i++) {
+                    let n = parseInt(last[i]);
+                    if(n-1 >= 1) w[n-1] += (this.params.w_neighbor || 10);
+                    if(n+1 <= 45) w[n+1] += (this.params.w_neighbor || 10);
+                }
+            } catch(e) {}
+            
+            w[0] = 0;
+            const maxW = Math.max(...w);
+            let expW = w.map(v => Math.exp((v / (maxW + 1e-9)) * 3.0));
+            const sumW = expW.reduce((a,b) => a+b, 0);
+            return expW.map(v => v / sumW);
+        }
+        generateSets(count=6) {
+            let results = [];
+            for(let c=0; c<count; c++) {
+                let valid = null;
+                for(let attempt=0; attempt<600; attempt++) {
+                    let pickN = Math.min(this.superCore.length, 3 + Math.floor(Math.random()*2));
+                    let combo = new Set();
+                    let shuffledCore = [...this.superCore].sort(() => 0.5 - Math.random());
+                    shuffledCore.slice(0, pickN).forEach(v => combo.add(v));
+                    
+                    while(combo.size < 6) {
+                        combo.add(weightedSample(this.weights));
+                    }
+                    let candidate = Array.from(combo).sort((a,b) => a-b);
+                    if(advancedPatternFilterV600(candidate)) {
+                        valid = candidate; break;
+                    }
+                    if(attempt === 599) valid = candidate;
+                }
+                results.push(valid);
+            }
+            return results;
+        }
+    }
+
+    class DNAEngineV605 {
+        constructor(data, params) {
+            this.data = data;
+            this.params = params;
+            this.weights = this.calcWeights();
+            let indexed = this.weights.map((w, i) => [w, i]).slice(1);
+            indexed.sort((a,b) => b[0] - a[0]);
+            this.dnaCore = indexed.slice(0, 10).map(x => x[1]);
+            this.linkPool = indexed.slice(10, 20).map(x => x[1]);
+        }
+        calcWeights() {
+            let w = new Array(46).fill(1.0);
+            const recent = this.data.slice(-12);
+            recent.forEach(row => {
+                for(let i=1; i<=6; i++) {
+                    let n = parseInt(row[i]);
+                    if(n>=1 && n<=45) w[n] += (this.params.w_recent || 10);
+                }
+            });
+            const last = this.data[this.data.length-1];
+            for(let i=1; i<=6; i++) {
+                let n = parseInt(last[i]);
+                if(n-1 >= 1) w[n-1] += (this.params.w_neighbor || 10);
+                if(n+1 <= 45) w[n+1] += (this.params.w_neighbor || 10);
+            }
+            w[0] = 0;
+            const maxW = Math.max(...w);
+            let powW = w.map(v => Math.pow(v / (maxW + 1e-9), 15.0));
+            const sumW = powW.reduce((a,b) => a+b, 0);
+            return powW.map(v => v / sumW);
+        }
+        generateDnaSets(count=6) {
+            let results = [];
+            for(let c=0; c<count; c++) {
+                let valid = null;
+                for(let att=0; att<5000; att++) {
+                    let c1cnt = 4 + Math.floor(Math.random()*2);
+                    let c1 = [...this.dnaCore].sort(() => 0.5 - Math.random()).slice(0, c1cnt);
+                    let c2 = [...this.linkPool].sort(() => 0.5 - Math.random()).slice(0, 6-c1cnt);
+                    let combo = [...c1, ...c2].sort((a,b) => a-b);
+                    if(dnaPatternFilterV610(combo)) {
+                        valid = combo; break;
+                    }
+                    if(att === 4999) valid = combo;
+                }
+                results.push(valid);
+            }
+            return results;
+        }
+    }
+
+    function weightedSample(weights) {
+        let r = Math.random();
+        let sum = 0;
+        for(let i=0; i<weights.length; i++) {
+            sum += weights[i];
+            if(r <= sum) return i;
+        }
+        return 45;
+    }
+
+    // --- [UI Helper] ---
+    function writeLog(tab, msg) {
+        const el = document.getElementById(`${tab}-debug-log`);
+        el.innerText += msg;
+        el.scrollTop = el.scrollHeight;
+    }
+
+    function updateSetsUI(tab, sets) {
+        const el = document.getElementById(`${tab}-sets-display`);
+        const lastActual = new Set(sharedData[sharedData.length-1].slice(1, 7).map(n => parseInt(n)));
+        el.innerHTML = "";
+        sets.forEach((set, i) => {
+            let line = `SET ${i+1}  `;
+            set.forEach(num => {
+                const isMatch = lastActual.has(num);
+                line += `<span class="${isMatch?'match-highlight':''}">${String(num).padStart(2, '0')}</span> `;
+            });
+            el.innerHTML += line + "<br>";
+        });
+    }
+
+    function backtest(tab, sets) {
+        if(sharedData.length < 10) return [];
+        const logEl = document.getElementById(`${tab}-bt-log`);
+        logEl.innerHTML = "회차  |   실제 당첨 번호   |  SET별 적중 개수<br>" + "-".repeat(60) + "<br>";
+        
+        let history = [];
+        for(let i=0; i<5; i++) {
+            const idx = sharedData.length - 1 - i;
+            const row = sharedData[idx];
+            const actual = new Set(row.slice(1, 7).map(n => parseInt(n)));
+            
+            let line = `${String(row[0]).padStart(4, ' ')}  | `;
+            Array.from(actual).sort((a,b)=>a-b).forEach(n => line += `${String(n).padStart(2, '0')} `);
+            line += " | ";
+            
+            let hits = sets.map(s => s.filter(n => actual.has(n)).length);
+            let maxH = Math.max(...hits);
+            history.push(maxH);
+            
+            hits.forEach(h => {
+                line += `<span class="${h>=3?'hit-red':''}">[${h}]</span> `;
+            });
+            line += `(MAX:${maxH})<br>`;
+            logEl.innerHTML += line;
+        }
+        return history;
+    }
+
+    // --- [v600 Actions] ---
+    function v600CalcScore(params) {
+        const data1 = sharedData.slice(0, -5);
+        const eng1 = new NeuroEngineV600(data1, params);
+        const h1 = [0,1,2,3,4].map(i => {
+            const act = new Set(sharedData[sharedData.length-5+i].slice(1,7).map(n=>parseInt(n)));
+            return Math.max(...eng1.generateSets(6).map(s => s.filter(n => act.has(n)).length));
+        });
+
+        const data2 = sharedData.slice(0, -10);
+        const eng2 = new NeuroEngineV600(data2, params);
+        const h2 = [0,1,2,3,4].map(i => {
+            const act = new Set(sharedData[sharedData.length-10+i].slice(1,7).map(n=>parseInt(n)));
+            return Math.max(...eng2.generateSets(6).map(s => s.filter(n => act.has(n)).length));
+        });
+
+        const avg1 = h1.reduce((a,b)=>a+b,0)/5;
+        const avg2 = h2.reduce((a,b)=>a+b,0)/5;
+        const consistency = h1.filter(h => h >= 3).length * 0.18;
+        return (Math.min(avg1, avg2) * 0.65) + (Math.max(avg1, avg2) * 0.35) + consistency;
+    }
+
+    async function v600ToggleEvolution() {
+        if(v600IsEvolving) {
+            v600IsEvolving = false;
+            document.getElementById('v600-evolve-btn').innerText = "⚡ 진화 시작";
+            document.getElementById('v600-evolve-btn').style.background = "#059669";
+        } else {
+            if(sharedData.length === 0) return alert("데이터를 먼저 로드하세요.");
+            v600IsEvolving = true;
+            document.getElementById('v600-evolve-btn').innerText = "🛑 중단(저장)";
+            document.getElementById('v600-evolve-btn').style.background = "#dc2626";
+            v600EvolutionLoop();
+        }
+    }
+
+    async function v600EvolutionLoop() {
+        const target = parseFloat(document.getElementById('v600-target-score').value);
+        let bestP = v600BestParams || {w_recent: 25, w_gap: 20, w_neighbor: 15, core_size: 14};
+        let gen = 0, stag = 0;
+
+        while(v600IsEvolving) {
+            gen++;
+            let currP = {...bestP};
+            let step = stag < 500 ? 0.1 : (stag < 1200 ? 2.0 : 7.0);
+            ['w_recent', 'w_gap', 'w_neighbor'].forEach(k => {
+                currP[k] = Math.max(1.0, currP[k] + (Math.random()*2 - 1) * step);
+            });
+
+            let score = v600CalcScore(currP);
+            if(score >= v600BestScore) {
+                if(score > v600BestScore) {
+                    stag = 0;
+                    writeLog('v600', `[G ${gen}] 경신: ${score.toFixed(2)} 🚀\n`);
+                } else stag++;
+                v600BestScore = score;
+                v600BestParams = currP;
+                v600BestParams.score = score;
+                updateSetsUI('v600', new NeuroEngineV600(sharedData, v600BestParams).generateSets(6));
+                document.getElementById('v600-status').innerText = `현재 로직: [${v600BestScore.toFixed(2)}점] 탐색중...`;
+            } else stag++;
+
+            if(v600BestScore >= target) {
+                v600Save();
+                v600IsEvolving = false;
+                break;
+            }
+            if(gen % 100 === 0) await new Promise(r => setTimeout(r, 1)); // UI 프리징 방지
+        }
+        document.getElementById('v600-evolve-btn').innerText = "⚡ 진화 시작";
+        document.getElementById('v600-evolve-btn').style.background = "#059669";
+    }
+
+    function v600RunFixed() {
+        if(!sharedData.length || !v600BestParams) return;
+        const eng = new NeuroEngineV600(sharedData, v600BestParams);
+        const sets = eng.generateSets(6);
+        updateSetsUI('v600', sets);
+        backtest('v600', sets);
+    }
+
+    function v600ToggleAuto() {
+        if(v600IsAuto) {
+            v600IsAuto = false;
+            v600IsWaiting = false;
+            document.getElementById('v600-auto-btn').innerText = "🔄 자동 추출";
+            document.getElementById('v600-rank-panel').style.display = "none";
+        } else {
+            if(!v600BestParams) return;
+            v600IsAuto = true;
+            document.getElementById('v600-auto-btn').innerText = "🛑 중지";
+            v600AutoLoop();
+        }
+    }
+
+    async function v600AutoLoop() {
+        while(v600IsAuto) {
+            if(v600IsWaiting) { await new Promise(r=>setTimeout(r, 1000)); continue; }
+            
+            const eng = new NeuroEngineV600(sharedData, v600BestParams);
+            const sets = eng.generateSets(6);
+            const hist = backtest('v600', sets);
+            const avg = hist.reduce((a,b)=>a+b,0)/5;
+            
+            let rank = "";
+            if(avg >= 3.4 && hist.filter(h=>h>=4).length >= 2) rank = "🏆 1위 [폭발형]";
+            else if(avg >= 3.2 && hist[0] >= 3) rank = "🥈 2위 [상승형]";
+            else if(avg >= 3.0) rank = "🥉 3위 [안정형]";
+
+            if(rank) {
+                document.getElementById('v600-rank-panel').style.display = "flex";
+                document.getElementById('v600-rank-text').innerText = `${rank}\n평균: ${avg.toFixed(2)}\n기록: [${hist}]`;
+                updateSetsUI('v600', sets);
+                v600IsWaiting = true;
+                for(let s=10; s>0; s--) {
+                    if(!v600IsAuto) break;
+                    document.getElementById('v600-timer-text').innerText = `NEXT IN ${s}s...`;
+                    await new Promise(r=>setTimeout(r, 1000));
+                }
+                v600IsWaiting = false;
+            } else {
+                await new Promise(r=>setTimeout(r, 50));
+            }
+        }
+    }
+
+    function v600Save() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(v600BestParams));
+        const dlAnchorElem = document.createElement('a');
+        dlAnchorElem.setAttribute("href", dataStr);
+        dlAnchorElem.setAttribute("download", `neuro_logic_v600_${v600BestScore.toFixed(2)}.json`);
+        dlAnchorElem.click();
+    }
+
+    // --- [v610 Actions] ---
+    async function v610ToggleSearch() {
+        if(v610IsSearching) {
+            v610IsSearching = false;
+            document.getElementById('v610-opt-btn').innerText = "💎 최적 조합 탐색 시작";
+            document.getElementById('v610-opt-btn').style.background = "#e11d48";
+        } else {
+            if(!sharedData.length || !v610BestParams) return alert("데이터와 로직을 로드하세요.");
+            v610IsSearching = true;
+            document.getElementById('v610-opt-btn').innerText = "🛑 탐색 중지";
+            document.getElementById('v610-opt-btn').style.background = "#475569";
+            
+            while(v610IsSearching) {
+                const eng = new DNAEngineV605(sharedData, v610BestParams);
+                const sets = eng.generateDnaSets(6);
+                const hist = backtest('v610', sets);
+                const avg = hist.reduce((a,b)=>a+b,0)/5;
+                
+                document.getElementById('v610-rank-text').innerText = `최적 탐색 중...\n현재 평균: ${avg.toFixed(2)}`;
+                updateSetsUI('v610', sets);
+
+                if(avg >= 3.10) {
+                    v610IsSearching = false;
+                    document.getElementById('v610-rank-text').innerText = `🏆 탐색 성공!\n평균: ${avg.toFixed(2)}\n기록: [${hist}]`;
+                    alert(`최적의 DNA 조합을 찾았습니다!\n평균 점수: ${avg.toFixed(2)}`);
+                    break;
+                }
+                await new Promise(r=>setTimeout(r, 10));
+            }
+            document.getElementById('v610-opt-btn').innerText = "💎 최적 조합 탐색 시작";
+            document.getElementById('v610-opt-btn').style.background = "#e11d48";
+        }
+    }
+</script>
+
+</body>
+</html>
