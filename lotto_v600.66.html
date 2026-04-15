@@ -144,7 +144,6 @@
         contents.forEach((c, i) => c.classList.toggle('active', i === idx));
     }
 
-    // 안드로이드 파일 로드 대응 (Excel)
     document.getElementById('file-excel').addEventListener('change', function(e) {
         const file = e.target.files[0]; if(!file) return;
         const reader = new FileReader();
@@ -164,7 +163,6 @@
         reader.readAsArrayBuffer(file); this.value = "";
     });
 
-    // 안드로이드 파일 로드 대응 (Logic JSON)
     function triggerLogicInput(target) { logicTargetTab = target; document.getElementById('file-logic').click(); }
     document.getElementById('file-logic').addEventListener('change', function(e) {
         const file = e.target.files[0]; if(!file) return;
@@ -185,8 +183,7 @@
         reader.readAsText(file); this.value = "";
     });
 
-    // --- [로직 엔진: Python 코드 100% 이식] ---
-
+    // --- 엔진 로직 ---
     function advancedPatternFilterV600(nums) {
         nums.sort((a,b)=>a-b);
         const sum = nums.reduce((a,b)=>a+b, 0);
@@ -195,8 +192,8 @@
         if(odd === 0 || odd === 6) return false;
         let diffs = new Set();
         for(let i=0; i<6; i++) for(let j=i+1; j<6; j++) diffs.add(nums[j]-nums[i]);
-        if(diffs.size - 5 < 7) return false; // AC value < 7
-        for(let i=0; i<4; i++) if(nums[i]+1===nums[i+1] && nums[i+1]+1===nums[i+2]) return false; // 3-연번 제거
+        if(diffs.size - 5 < 7) return false;
+        for(let i=0; i<4; i++) if(nums[i]+1===nums[i+1] && nums[i+1]+1===nums[i+2]) return false;
         return true;
     }
 
@@ -303,7 +300,6 @@
         }
     }
 
-    // --- [UI & 제어 로직] ---
     function writeLog(tab, msg) { const el = document.getElementById(`${tab}-debug-log`); el.innerText += msg; el.scrollTop = el.scrollHeight; }
     
     function updateSetsUI(tab, sets) {
@@ -330,32 +326,57 @@
         log.innerHTML = html; return history;
     }
 
+    // --- 수정한 진화 제어 로직 (자동저장 포함) ---
     async function v600ToggleEvolution() {
-        if(v600IsEvolving) { v600IsEvolving = false; return; }
+        if(v600IsEvolving) { 
+            v600IsEvolving = false; 
+            if(v600BestParams) v600Save(); // 중단 시 현재 최고 로직 최종 저장
+            return; 
+        }
         if(!sharedData.length) return alert("데이터 로드 필요");
+        
         v600IsEvolving = true;
-        const btn = document.getElementById('v600-evolve-btn'); btn.innerText = "🛑 중단(저장)"; btn.className = "btn-stop";
+        const btn = document.getElementById('v600-evolve-btn'); 
+        btn.innerText = "🛑 중단(저장)"; 
+        btn.className = "btn-stop";
+        
         const target = parseFloat(document.getElementById('v600-target-score').value);
         let bestP = v600BestParams || {w_recent:25, w_gap:20, w_neighbor:15, core_size:14};
         let gen = 0;
+
         while(v600IsEvolving) {
-            gen++; let currP = {...bestP};
+            gen++; 
+            let currP = {...bestP};
             ['w_recent','w_gap','w_neighbor'].forEach(k => currP[k] = Math.max(1, currP[k] + (Math.random()*2-1)*0.5));
             
-            // 점수 계산 루틴
             const eng1 = new NeuroEngineV600(sharedData.slice(0,-5), currP);
-            const h1 = [0,1,2,3,4].map(i => Math.max(...eng1.generateSets(6).map(s=>s.filter(n=>new Set(sharedData[sharedData.length-5+i].slice(1,7).map(x=>parseInt(x))).has(n)).length)));
+            const sets = eng1.generateSets(6);
+            const h1 = [0,1,2,3,4].map(i => Math.max(...sets.map(s=>s.filter(n=>new Set(sharedData[sharedData.length-5+i].slice(1,7).map(x=>parseInt(x))).has(n)).length)));
             const score = (h1.reduce((a,b)=>a+b,0)/5) + (h1.filter(x=>x>=3).length*0.2);
 
-            if(score >= v600BestScore) {
-                v600BestScore = score; v600BestParams = {...currP, score: score};
-                document.getElementById('v600-status').innerText = `최고 점수 경신: ${score.toFixed(2)}점 (Gen ${gen})`;
-                updateSetsUI('v600', new NeuroEngineV600(sharedData, v600BestParams).generateSets(6));
-                if(score >= target) { v600Save(); break; }
+            // 점수가 오르면 즉시 자동저장
+            if(score > v600BestScore) {
+                v600BestScore = score; 
+                v600BestParams = {...currP, score: score};
+                document.getElementById('v600-status').innerText = `최고 점수 경신: ${score.toFixed(2)}점 (Gen ${gen}) ✅ 자동저장됨`;
+                updateSetsUI('v600', sets);
+                
+                // 파일 다운로드 함수 실행
+                v600Save(); 
+
+                if(score >= target) { 
+                    writeLog('v600', `>> 목표 점수 ${target} 달성 및 저장 완료\n`);
+                    break; 
+                }
             }
-            if(gen % 50 === 0) { writeLog('v600', `Gen ${gen}.. Score: ${v600BestScore.toFixed(2)}\n`); await new Promise(r=>setTimeout(r,1)); }
+            if(gen % 50 === 0) { 
+                writeLog('v600', `Gen ${gen}.. Score: ${v600BestScore.toFixed(2)}\n`); 
+                await new Promise(r=>setTimeout(r,1)); 
+            }
         }
-        v600IsEvolving = false; btn.innerText = "⚡ 진화 시작"; btn.className = "btn-evolve";
+        v600IsEvolving = false; 
+        btn.innerText = "⚡ 진화 시작"; 
+        btn.className = "btn-evolve";
     }
 
     function v600RunFixed() {
@@ -400,9 +421,16 @@
     }
 
     function v600Save() {
+        if(!v600BestParams) return;
         const blob = new Blob([JSON.stringify(v600BestParams)], {type: "application/json"});
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = `logic_v600_${v600BestScore.toFixed(2)}.json`; a.click();
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `logic_v600_${v600BestScore.toFixed(2)}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     }
 </script>
 </body>
